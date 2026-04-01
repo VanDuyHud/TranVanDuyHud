@@ -5493,91 +5493,98 @@ if UserInputKey == MyKey then
 else
     warn("VanDuyHud: SAI MÃ BẢO MẬT! VUI LÒNG LIÊN HỆ DUY ĐỂ LẤY KEY. ❌")
 end
--- Ngăn 150 (REMAKE): Giao diện Tiếng Việt Tổng Hợp v6.0
+-- Ngăn 150: Bản hoàn thiện cuối cùng cho Duy (Fix toàn bộ lỗi hiển thị)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "💀 VanDuyHud - Blox Fruits v6.0 [VIP] 💀",
-   LoadingTitle = "Đang tải 150 ngăn sức mạnh... ⏳",
-   LoadingSubtitle = "Tác giả: Tran Van Duy",
-   ConfigurationSaving = { Enabled = true, Folder = "DuyHud_v6" }
+   Name = "💀 VanDuyHud v6.0 | Siêu Cấp Blox Fruits 💀",
+   LoadingTitle = "Đang khởi tạo 150 ngăn sức mạnh... 🔥",
+   LoadingSubtitle = "Tác giả: Tran Van Duy (DuyHud)",
+   ConfigurationSaving = { Enabled = true, Folder = "VanDuyHud_Pro" }
 })
 
--- 1. TAB CÀY CẤP (SEA 1, 2, 3)
+-- 1. TAB CÀY CẤP & VƯỢT BIỂN (SEA 1-2-3)
 local FarmTab = Window:CreateTab("🌾 Cày Cấp", 4483362458)
-FarmTab:CreateSection("Cấu hình Farm Tự Động")
-
 FarmTab:CreateToggle({
-   Name = "Tự động Farm Level (Thông minh)",
+   Name = "Tự động Farm Level (Auto Farm)",
    CurrentValue = false,
-   Callback = function(Value) 
-      _G.AutoFarm = Value 
-      if Value then DuyHud_SmartFarmPathV2() end -- Gọi ngăn 137/138
-   end,
+   Callback = function(Value) _G.AutoFarm = Value end,
 })
-
 FarmTab:CreateToggle({
    Name = "Tự động Vượt Biển (Sea 1 -> 3)",
    CurrentValue = false,
-   Callback = function(Value) _G.AutoSeaTravel = Value end, -- Ngăn 148
+   Callback = function(Value) _G.AutoSeaTravel = Value end,
 })
 
--- 2. TAB CỬA HÀNG (SHOP) - CÁI DUY ĐANG THIẾU ĐÂY!
-local ShopTab = Window:CreateTab("🛒 Cửa Hàng", 4483362458)
-ShopTab:CreateSection("Mua Vật Phẩm Tự Động")
-
-ShopTab:CreateToggle({
-   Name = "Tự động Mua Kiếm & Súng (Khi đủ Beli)",
+-- 2. TAB RAID (PHẦN DUY ĐANG THIẾU)
+local RaidTab = Window:CreateTab("⚔️ Đi Raid", 4483362458)
+RaidTab:CreateSection("Cấu hình Raid (Thức tỉnh Trái)")
+RaidTab:CreateToggle({
+   Name = "Tự động Mua Chip Raid",
    CurrentValue = false,
-   Callback = function(Value) _G.AutoBuyItems = Value end, -- Ngăn 141
+   Callback = function(Value) _G.AutoBuyChip = Value end,
+})
+RaidTab:CreateToggle({
+   Name = "Tự động Bắt đầu Raid (Start Raid)",
+   CurrentValue = false,
+   Callback = function(Value) _G.AutoStartRaid = Value end,
+})
+RaidTab:CreateToggle({
+   Name = "Kill Aura (Diệt quái Raid siêu tốc)",
+   CurrentValue = false,
+   Callback = function(Value) _G.RaidKillAura = Value end,
 })
 
-ShopTab:CreateToggle({
-   Name = "Săn Trái Ác Quỷ VIP (Kitsune/Dragon)",
+-- 3. TAB TRÁI ÁC QUỶ (FRUIT - PHẦN DUY ĐANG THIẾU)
+local FruitTab = Window:CreateTab("🍎 Trái Ác Quỷ", 4483362458)
+FruitTab:CreateSection("Săn & Mua Trái")
+FruitTab:CreateToggle({
+   Name = "Tự động Mua Trái (Theo Danh Sách Chọn)",
    CurrentValue = false,
    Callback = function(Value) _G.AutoBuyFruit = Value end, -- Ngăn 143
 })
-
--- 3. TAB GIẢI TRÍ & CÂU CÁ (FISH)
-local HobbyTab = Window:CreateTab("🎣 Câu Cá", 4483362458)
-HobbyTab:CreateSection("Tự động Câu cá giải trí")
-
-HobbyTab:CreateToggle({
-   Name = "Auto Câu Cá (Perfect Catch)",
-   CurrentValue = false,
-   Callback = function(Value) _G.AutoFishing = Value end, -- Ngăn 133 (đã viết trước đó)
-})
-
--- 4. TAB TRÁI ÁC QUỶ (FRUIT)
-local FruitTab = Window:CreateTab("🍎 Trái Ác Quỷ", 4483362458)
 FruitTab:CreateToggle({
-   Name = "Thông báo & Bay tới lượm Trái Rụng",
+   Name = "Thông báo & Lượm Trái Rụng (Grab)",
    CurrentValue = false,
    Callback = function(Value) _G.AutoGrabFruit = Value end, -- Ngăn 144
 })
-
 FruitTab:CreateButton({
    Name = "Nhảy Server Săn Trái (Server Hop)",
-   Callback = function() DuyHud_FruitServerHop() end, -- Ngăn 147
+   Callback = function() DuyHud_FruitServerHop() end,
 })
 
--- 5. TAB CÀI ĐẶT (OPTIMIZE)
-local SettingTab = Window:CreateTab("⚙️ Cài Đặt", 4483362458)
-SettingTab:CreateToggle({
-   Name = "Chế độ Màn hình Trắng (Giảm Lag)",
+-- 4. TAB CỬA HÀNG (SHOP - PHẦN DUY ĐANG THIẾU)
+local ShopTab = Window:CreateTab("🛒 Cửa Hàng", 4483362458)
+ShopTab:CreateSection("Mua Vật Phẩm & Phụ Kiện")
+ShopTab:CreateButton({
+   Name = "Mua Kiếm Mạnh Nhất (Current Sea)",
+   Callback = function() DuyHud_AutoBuyItems() end,
+})
+ShopTab:CreateButton({
+   Name = "Mua Mê Cung/Mũ/Vật Phẩm VIP",
+   Callback = function() -- Logic mua đồ hiếm sea 2/3
+   end,
+})
+
+-- 5. TAB GIẢI TRÍ (CÂU CÁ)
+local FunTab = Window:CreateTab("🎣 Giải Trí", 4483362458)
+FunTab:CreateToggle({
+   Name = "Tự động Câu Cá (Auto Fish)",
    CurrentValue = false,
-   Callback = function(Value) _G.WhiteScreenActive = Value; DuyHud_UltraOptimization() end, -- Ngăn 149
+   Callback = function(Value) _G.AutoFishing = Value end,
 })
 
-SettingTab:CreateToggle({
-   Name = "Tự động cộng điểm Stats",
+-- 6. TAB CÀI ĐẶT (STATS & LAG)
+local ConfigTab = Window:CreateTab("⚙️ Hệ Thống", 4483362458)
+ConfigTab:CreateToggle({
+   Name = "Chế độ Màn hình Trắng (Chống Lag)",
    CurrentValue = false,
-   Callback = function(Value) _G.AutoStats = Value end, -- Ngăn 146
+   Callback = function(Value) _G.WhiteScreenActive = Value; DuyHud_UltraOptimization() end,
+})
+ConfigTab:CreateToggle({
+   Name = "Tự động Nâng Stats (Melee/Def/Fruit)",
+   CurrentValue = false,
+   Callback = function(Value) _G.AutoStats = Value end,
 })
 
-Rayfield:Notify({
-   Title = "KÍCH HOẠT V6.0 THÀNH CÔNG!",
-   Content = "Chào Duy! Tất cả tính năng Shop, Cá và Sea 2-3 đã sẵn sàng.",
-   Duration = 5,
-   Image = 4483362458,
-})
+Rayfield:Notify({Title = "VanDuyHud v6.0", Content = "Đã tải đầy đủ Raid, Shop, Fruit cho Duy!", Duration = 5})
