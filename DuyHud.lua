@@ -332,3 +332,177 @@ task.spawn(function()
 end)
 
 print("DuyHud: Đã kích hoạt Fast Attack & Bring Mob!")
+-- [[ PHẦN 9: TRÍ TUỆ AUTO FARM (TỰ NHẬN QUEST & TẤN CÔNG) ]]
+
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AutoFarm then
+            pcall(function()
+                -- 1. KIỂM TRA ĐÃ CÓ NHIỆM VỤ CHƯA
+                local PlayerGui = game:GetService("Players").LocalPlayer.PlayerGui
+                local hasQuest = PlayerGui.Main.Quest.Visible
+                
+                -- Lấy dữ liệu Quest phù hợp Level (Dùng hàm GetMyQuest mình đưa lúc nãy)
+                local MyQuestData = GetMyQuest() 
+                
+                if not hasQuest then
+                    -- NẾU CHƯA CÓ: Bay tới NPC để nhận
+                    if MyQuestData then
+                        TweenTo(MyQuestData.NPC_Pos)
+                        -- Khoảng cách gần NPC thì bấm nhận
+                        if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - MyQuestData.NPC_Pos.Position).Magnitude < 15 then
+                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", MyQuestData.QuestName, 1)
+                        end
+                    end
+                else
+                    -- NẾU CÓ RỒI: Tìm quái để tiêu diệt
+                    local TargetMon = game:GetService("Workspace").Enemies:FindFirstChild(MyQuestData.MonsterName)
+                    
+                    if TargetMon and TargetMon:FindFirstChild("Humanoid") and TargetMon.Humanoid.Health > 0 then
+                        -- Bay tới quái
+                        TweenTo(TargetMon.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                        
+                        -- TỰ ĐỘNG TẤN CÔNG (Spam Click)
+                        game:GetService("VirtualUser"):CaptureController()
+                        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                    else
+                        -- Nếu không thấy quái ở gần thì bay ra giữa bãi quái đợi
+                        TweenTo(MyQuestData.Monster_Pos)
+                    end
+                end
+            end)
+        end
+    end
+end)
+-- [[ PHẦN 10: FULL LOGIC FARM - DÁN NỐI TIẾP VÀO DÒNG CUỐI ]]
+
+-- 1. BẢNG TỌA ĐỘ (MAP DATA)
+local LevelData = {
+    {Level = 1, Quest = "BanditQuest1", Monster = "Bandit", NPC_Pos = CFrame.new(1059, 15, 1548), Mon_Pos = CFrame.new(1145, 17, 1633)},
+    {Level = 10, Quest = "MonkeyQuest1", Monster = "Monkey", NPC_Pos = CFrame.new(-1598, 36, 153), Mon_Pos = CFrame.new(-1623, 36, 155)},
+    {Level = 15, Quest = "GorillaQuest1", Monster = "Gorilla", NPC_Pos = CFrame.new(-1598, 36, 153), Mon_Pos = CFrame.new(-1237, 7, -493)}
+}
+
+-- 2. HÀM TỰ ĐỘNG CHỌN QUEST
+function GetMyQuest()
+    local myLevel = game.Players.LocalPlayer.Data.Level.Value
+    local best = LevelData[1]
+    for _, v in pairs(LevelData) do
+        if myLevel >= v.Level then best = v end
+    end
+    return best
+end
+
+-- 3. HÀM BAY (TWEEN)
+local function TweenTo(Pos)
+    local Distance = (Pos.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+    game:GetService("TweenService"):Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new(Distance/250, Enum.EasingStyle.Linear), {CFrame = Pos}):Play()
+end
+
+-- 4. VÒNG LẶP THỰC THI (ENGINE)
+task.spawn(function()
+    while task.wait(0.5) do
+        if _G.AutoFarm then
+            pcall(function()
+                local q = GetMyQuest()
+                if not game:GetService("Players").LocalPlayer.PlayerGui.Main.Quest.Visible then
+                    -- Chưa có quest thì bay đi nhận
+                    TweenTo(q.NPC_Pos)
+                    if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - q.NPC_Pos.Position).Magnitude < 15 then
+                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", q.Quest, 1)
+                    end
+                else
+                    -- Có quest rồi thì đi tìm quái
+                    local Enemy = game:GetService("Workspace").Enemies:FindFirstChild(q.Monster)
+                    if Enemy and Enemy:FindFirstChild("HumanoidRootPart") and Enemy.Humanoid.Health > 0 then
+                        TweenTo(Enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                        -- Tự đánh
+                        game:GetService("VirtualUser"):CaptureController()
+                        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                    else
+                        -- Bay ra giữa bãi quái đợi quái hồi sinh
+                        TweenTo(q.Mon_Pos)
+                    end
+                end
+            end)
+        end
+    end
+end)
+-- [[ PHẦN 11: AUTO EQUIP & BRING MOB PRO (GOM QUÁI SIÊU TỐC) ]]
+
+_G.AutoEquip = true -- Mặc định tự cầm vũ khí
+
+-- 1. HÀM TỰ CẦM VŨ KHÍ (MELEE/KIẾM)
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AutoFarm and _G.AutoEquip then
+            pcall(function()
+                -- Ưu tiên cầm Melee (Võ) để farm
+                local Tool = game.Players.LocalPlayer.Backpack:FindFirstChild("Combat") 
+                    or game.Players.LocalPlayer.Backpack:FindFirstChild("Black Leg")
+                    or game.Players.LocalPlayer.Backpack:FindFirstChild("Electro")
+                    or game.Players.LocalPlayer.Backpack:FindFirstChild("Fishman Kung Fu")
+                    -- Nếu không có võ thì cầm Kiếm (Sword)
+                    or game.Players.LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                
+                if Tool and not game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+                    game.Players.LocalPlayer.Character.Humanoid:EquipTool(Tool)
+                end
+            end)
+        end
+    end
+end)
+
+-- 2. HÀM GOM QUÁI SIÊU CẤP (BRING MOB V2)
+task.spawn(function()
+    while task.wait() do
+        if _G.AutoFarm then
+            pcall(function()
+                local q = GetMyQuest() -- Lấy tên quái hiện tại Duy đang farm
+                for _, v in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
+                    if v.Name == q.Monster and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                        -- Kiểm tra khoảng cách để không gom quái ở quá xa (tránh lỗi)
+                        local dist = (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < 350 then
+                            v.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+                            v.HumanoidRootPart.CanCollide = false -- Để quái không đẩy Duy đi
+                            v.Humanoid.JumpPower = 0 -- Khóa quái không cho nhảy
+                            if v.Humanoid.Health <= 0 then
+                                v.HumanoidRootPart.Size = Vector3.new(0,0,0)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+print("DuyHud: Phần 11 - Auto Equip & Bring Mob đã hoạt động!")
+-- [[ PHẦN 12: AUTO STATS (TỰ NÂNG ĐIỂM) ]]
+_G.AutoStats = true -- Mặc định tự nâng điểm vào Melee
+
+task.spawn(function()
+    while task.wait(1) do
+        if _G.AutoStats then
+            pcall(function()
+                -- Tự động nâng vào Melee (Cận chiến) để farm khỏe hơn
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", "Melee", 3)
+                -- Nếu Duy muốn nâng vào Defense (Máu) thì đổi chữ "Melee" thành "Defense"
+            end)
+        end
+    end
+end)
+
+-- [[ PHẦN 13: ANTI-KICK & ANTI-AFK (CHỐNG VĂNG GAME) ]]
+local VirtualUser = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+    print("DuyHud: Đã chặn treo máy (Anti-AFK)!")
+end)
+
+-- [[ KẾT THÚC SCRIPT DUY HUD V3 ]]
+print("-------------------------------")
+print("DUY HUD V3 ĐÃ SẴN SÀNG CHIẾN!")
+print("-------------------------------")
