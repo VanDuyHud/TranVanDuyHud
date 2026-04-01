@@ -1040,45 +1040,47 @@ task.spawn(function()
         end
     end
 end)
-
--- THÊM NÚT VÀO MENU (Tọa độ 1010)
-QuickBtn("Auto Võ Electric Claw ⚡", 1010, function(s) 
-    _G.AutoElectricClaw = s 
-end)
--- [[ PHẦN 25: AUTO RAID SIÊU TỐC (QUÁI XUẤT HIỆN LÀ CHẾT - CHỌN LOẠI RAID) ]]
+-- [[ PHẦN 25: AUTO RAID SIÊU TỐC (FIX LỖI KHÔNG VÀO PHÒNG - SEA 2 & 3) ]]
 
 _G.AutoRaid = false
-_G.SelectRaid = "Flame" -- Duy có thể đổi thành: "Ice", "Quake", "Light", "Dark", "Buddha", "Spider", "Phoenix"
+_G.SelectRaid = "Flame" -- Duy đổi tên Chip ở đây (Flame, Ice, Buddha...)
 
 task.spawn(function()
-    while task.wait(0.1) do -- Chạy vòng lặp cực nhanh
+    while task.wait(0.1) do
         if _G.AutoRaid then
             pcall(function()
-                -- 1. TỰ ĐỘNG MUA CHIP VÀ VÀO PHÒNG RAID
+                -- 1. NẾU ĐANG Ở NGOÀI: TỰ BAY VÀO PHÒNG ĐIỀU KHIỂN
                 if not game:GetService("Workspace").Map:FindFirstChild("Raid") then
-                    print("DuyHud: Đang mua Chip " .. _G.SelectRaid .. "...")
-                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("RaidsEntity","Select", _G.SelectRaid)
-                    task.wait(0.2)
-                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("RaidsEntity","Start")
+                    local RaidLab = CFrame.new(-6400, 250, -4490) -- Tọa độ phòng máy Sea 2
+                    if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - RaidLab.Position).Magnitude > 20 then
+                        print("DuyHud: Đang bay tới phòng điều khiển Raid...")
+                        TweenTo(RaidLab)
+                    else
+                        -- TỰ ĐỘNG CHỌN CHIP VÀ NHẤN NÚT BẮT ĐẦU
+                        print("DuyHud: Đang mua Chip " .. _G.SelectRaid .. " và kích hoạt...")
+                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("RaidsEntity","Select", _G.SelectRaid)
+                        task.wait(0.5)
+                        -- Lệnh ép buộc nhân vật nhấn nút xanh (Start)
+                        fireclickdetector(game:GetService("Workspace").Map.Island2.Raids.Button.ClickDetector)
+                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("RaidsEntity","Start")
+                    end
                 else
-                    -- 2. LOGIC DIỆT QUÁI SIÊU TỐC (KILL AURA)
-                    for i, v in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
-                        if v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                            -- Duy sẽ bay lơ lửng trên đầu quái để không bị đánh trúng
-                            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0)
-                            
-                            -- Quái vừa hiện là bị trừ máu tới chết
-                            v.Humanoid.Health = 0 
-                            
-                            -- Bật Fast Attack hỗ trợ
+                    -- 2. KHI ĐÃ VÀO TRONG: KILL AURA SIÊU TỐC
+                    for _, v in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
+                        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            -- Duy lơ lửng trên đầu để quái không đánh trúng
+                            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 50, 0)
+                            -- Ép máu quái về 0 ngay lập tức (Kill Aura)
+                            v.Humanoid.Health = 0
                             _G.FastAttack = true
                             _G.AutoClick = true
                         end
                     end
                     
-                    -- 3. TỰ ĐỘNG DI CHUYỂN QUA ĐẢO TIẾP THEO
+                    -- 3. TỰ ĐỘNG BAY QUA ĐẢO TIẾP THEO KHI HẾT QUÁI
                     local NextIsland = game:GetService("Workspace").Map.Raid:FindFirstChild("Island")
                     if NextIsland and not game:GetService("Workspace").Enemies:FindFirstChildOfClass("Model") then
+                        print("DuyHud: Đã sạch quái! Sang đảo tiếp theo...")
                         TweenTo(NextIsland.CFrame * CFrame.new(0, 100, 0))
                     end
                 end
@@ -1087,7 +1089,7 @@ task.spawn(function()
     end
 end)
 
--- THÊM NÚT VÀO MENU (Tọa độ 1060)
+-- GIỮ NGUYÊN NÚT Ở TỌA ĐỘ 1060
 QuickBtn("Auto Raid Siêu Tốc ⚡", 1060, function(s) 
     _G.AutoRaid = s 
 end)
@@ -1099,37 +1101,38 @@ task.spawn(function()
     while task.wait(1) do
         if _G.AutoEliteHunter then
             pcall(function()
-                -- 1. KIỂM TRA SỐ LƯỢNG ELITE ĐÃ DIỆT (DUY CẦN ĐỦ 30 CON)
+                -- 1. KIỂM TRA TIẾN ĐỘ (DUY CẦN ĐỦ 30 CON ĐỂ RÚT KIẾM)
                 local Progress = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("EliteHunter","Progress")
-                print("DuyHud: Duy đã diệt được " .. tostring(Progress) .. "/30 Elite Hunter")
+                print("DuyHud: Duy đã diệt được " .. tonumber(Progress) .. "/30 Elite Hunter")
 
-                -- 2. TÌM QUÁI ELITE TRÊN BẢN ĐỒ
+                -- 2. TÌM VÀ DIỆT QUÁI ELITE (DEANDRE, DIABLO, URBAN)
                 local Elite = game:GetService("Workspace").Enemies:FindFirstChild("Deandre") or 
                               game:GetService("Workspace").Enemies:FindFirstChild("Diablo") or 
                               game:GetService("Workspace").Enemies:FindFirstChild("Urban")
 
                 if Elite and Elite:FindFirstChild("HumanoidRootPart") and Elite.Humanoid.Health > 0 then
-                    print("DuyHud: Đã tìm thấy " .. Elite.Name .. "! Đang tiêu diệt...")
-                    
-                    -- Bay sát phía trên đầu Elite để né chiêu
+                    print("DuyHud: Đang tiêu diệt " .. Elite.Name .. "!")
+                    -- Bay lơ lửng trên đầu để né chiêu của Elite
                     TweenTo(Elite.HumanoidRootPart.CFrame * CFrame.new(0, 15, 0))
-                    
                     _G.FastAttack = true
                     _G.AutoClick = true
                 else
-                    -- 3. NẾU CHƯA CÓ QUÁI: TỰ ĐỘNG ĐI NHẬN NHIỆM VỤ TẠI CASTLE ON THE SEA
-                    print("DuyHud: Đang đợi Elite hồi sinh (10 phút/con). Đang kiểm tra nhiệm vụ...")
+                    -- 3. NẾU CHƯA CÓ QUÁI: TỰ ĐI NHẬN NHIỆM VỤ ĐỂ KIỂM TRA VỊ TRÍ
+                    print("DuyHud: Đang kiểm tra nhiệm vụ tại Castle on the Sea...")
                     local EliteNPC = CFrame.new(-5410, 315, -2820)
-                    TweenTo(EliteNPC)
-                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("EliteHunter")
+                    if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - EliteNPC.Position).Magnitude > 20 then
+                        TweenTo(EliteNPC)
+                    else
+                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("EliteHunter")
+                    end
                 end
 
-                -- 4. KHI ĐỦ 30 CON: TỰ ĐỘNG ĐI RÚT KIẾM YAMA TẠI ĐẢO PHỤ NỮ (HYDRA ISLAND)
+                -- 4. KHI ĐỦ 30 CON: TỰ ĐỘNG ĐI RÚT KIẾM YAMA TẠI THÁC NƯỚC (HYDRA ISLAND)
                 if tonumber(Progress) >= 30 then
-                    print("DuyHud: Đã đủ 30 con! Đang đi rút kiếm Yama...")
-                    local YamaSword = CFrame.new(5220, 10, 4280) -- Tọa độ bệ đá Yama
+                    print("DuyHud: Đã đủ 30 con! Đang đi lấy thanh Yama cho Duy...")
+                    local YamaSword = CFrame.new(5220, 10, 4280)
                     TweenTo(YamaSword)
-                    -- Click liên tục vào bệ đá để rút kiếm
+                    -- Click liên tục để rút kiếm
                     fireclickdetector(game:GetService("Workspace").Map.HydraIsland.Sub.Yama.ClickDetector)
                 end
             end)
@@ -1141,6 +1144,7 @@ end)
 QuickBtn("Auto Săn Elite (Lấy Yama)", 1110, function(s) 
     _G.AutoEliteHunter = s 
 end)
+
 -- [[ PHẦN 27: AUTO LẤY KIẾM TUSHITA (GIẢI ĐỐ 5 NGỌN ĐUỐC - SEA 3) ]]
 
 _G.AutoTushita = false
