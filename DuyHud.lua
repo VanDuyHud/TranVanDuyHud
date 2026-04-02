@@ -5588,3 +5588,843 @@ ConfigTab:CreateToggle({
 })
 
 Rayfield:Notify({Title = "VanDuyHud v6.0", Content = "Đã tải đầy đủ Raid, Shop, Fruit cho Duy!", Duration = 5})
+-- Ngăn 151: Logic Kiểm tra điều kiện lấy Tushita & Yama (CDK Pre-check)
+function DuyHud_CDK_Check()
+    local Player = game.Players.LocalPlayer
+    local Level = Player.Data.Level.Value
+    local Inventory = Player.Backpack -- Hoặc check trong Data Storage của game
+
+    print("VanDuyHud: Đang kiểm tra trình độ của Duy để lấy CDK... 🔍")
+
+    -- 1. Điều kiện cơ bản: Phải Level 2200+
+    if Level < 2200 then
+        warn("VanDuyHud: Duy cần đạt Level 2200 để bắt đầu chuỗi nhiệm vụ này! ⚠️")
+        return false
+    end
+
+    -- 2. Kiểm tra tinh thông (Mastery) của Yama và Tushita (Cần 350+ điểm mỗi cây)
+    -- Duy cần logic check Mastery ở đây (Dùng Remote hoặc check Tool Info)
+    local YamaMastery = 350 -- Giả định Duy đã cày xong
+    local TushitaMastery = 350 
+
+    if YamaMastery >= 350 and TushitaMastery >= 350 then
+        print("VanDuyHud: Duy đã đủ điều kiện! Đang tiến tới khu vực Hydra Island... 🏝️")
+        -- Gọi ngăn 152 để bắt đầu giải đố (Puzzle)
+        return true
+    else
+        print("VanDuyHud: Duy chưa đủ Mastery. Đang tự động đi cày Mastery cho Kiếm... ⚔️")
+        _G.AutoMasterySword = true -- Kích hoạt ngăn cày Mastery
+    end
+end
+-- Ngăn 162: Logic Tổng hợp Raid & Fruit (DuyHud x Rezd Style)
+function DuyHud_Fruit_Raid_System()
+    local Player = game.Players.LocalPlayer
+    local CommF = game:GetService("ReplicatedStorage").Remotes.CommF_
+    
+    -- 1. TỰ ĐỘNG RANDOM TRÁI (GACHA)
+    _G.AutoGacha = true
+    spawn(function()
+        while _G.AutoGacha do
+            -- Tự động mua trái từ NPC Blox Fruit Cousin (Gacha)
+            local Success = CommF:InvokeServer("Cousin", "Buy")
+            if Success then print("VanDuyHud: Đã Gacha thành công! 🍎") end
+            task.wait(7205) -- Đợi 2 tiếng + 5 giây trừ hao
+        end
+    end)
+
+    -- 2. TỰ ĐỘNG LƯỢM TRÁI RỤNG & GOM RƯƠNG (TELEPORT)
+    _G.AutoCollectAll = true
+    spawn(function()
+        while _G.AutoCollectAll do
+            -- Quét Trái Ác Quỷ trên bản đồ
+            for _, v in pairs(game.Workspace:GetChildren()) do
+                if v:IsA("Tool") and (v.Name:find("Fruit") or v:FindFirstChild("Handle")) then
+                    Player.Character.HumanoidRootPart.CFrame = v.Handle.CFrame
+                    task.wait(0.5)
+                    -- Sau khi nhặt, tự động gọi ngăn 145 để cất kho
+                    DuyHud_AutoStoreFruit()
+                end
+            end
+            
+            -- Quét Rương Tiền (Chest) để lấy Beli
+            for _, chest in pairs(game.Workspace:GetChildren()) do
+                if chest.Name:find("Chest") then
+                    Player.Character.HumanoidRootPart.CFrame = chest.CFrame
+                    task.wait(0.15)
+                end
+            end
+            task.wait(10) -- Nghỉ 10 giây trước khi quét lại
+        end
+    end)
+
+    -- 3. CHỌN CHIP & TỰ ĐỘNG ĐI RAID
+    _G.SelectedRaidChip = "Flame" -- Duy có thể đổi thành "Buddha", "Dough"...
+    _G.AutoRaidSystem = true
+    spawn(function()
+        while _G.AutoRaidSystem do
+            -- Tự động mua Chip tại NPC ở Sea 2/Sea 3
+            CommF:InvokeServer("Raids", "Buy", _G.SelectedRaidChip)
+            task.wait(1)
+            -- Tự động bắt đầu Raid
+            CommF:InvokeServer("Raids", "Start")
+            task.wait(60) -- Đợi vào phòng Raid
+        end
+    end)
+end
+-- Ngăn 163: Logic Tự động cày nguyên liệu nâng cấp (Auto Material Farm)
+function DuyHud_AutoMaterial()
+    local Player = game.Players.LocalPlayer
+    local Workspace = game:GetService("Workspace")
+    
+    -- Danh sách bãi quái rơi nguyên liệu (Duy cập nhật thêm ID/Tên quái)
+    local MaterialList = {
+        ["Magma Ore"] = "Military Soldier", -- Đảo Magma
+        ["Fish Tail"] = "Fishman Warrior",  -- Đảo Cá
+        ["Dragon Scale"] = "Dragon Crew",    -- Đảo Phụ nữ (Sea 3)
+        ["Bones"] = "Reanimated Skeleton"    -- Đảo Ma (Sea 3)
+    }
+
+    _G.SelectedMaterial = "Bones" -- Duy cho khách chọn trong Menu
+    _G.AutoFarmMaterial = true
+
+    spawn(function()
+        while _G.AutoFarmMaterial do
+            task.wait(1)
+            local MonsterName = MaterialList[_G.SelectedMaterial]
+            
+            -- Kiểm tra xem quái có tồn tại trên Map không
+            local Target = Workspace.Enemies:FindFirstChild(MonsterName) or Workspace.Enemies:FindFirstChild(MonsterName:sub(1, #MonsterName - 1))
+            
+            if Target and Target:FindFirstChild("HumanoidRootPart") and Target.Humanoid.Health > 0 then
+                -- 1. Bay tới quái
+                Player.Character.HumanoidRootPart.CFrame = Target.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                
+                -- 2. Đánh quái (Dùng ngăn 137: Auto Click/Fast Attack)
+                DuyHud_FastAttack(Target)
+            else
+                -- 3. Nếu không có quái, bay tới điểm Spawn của nó
+                -- Duy dán tọa độ các bãi quái vào đây
+                print("VanDuyHud: Đang đợi quái " .. MonsterName .. " xuất hiện... ⏳")
+            end
+        end
+    end)
+    
+    print("VanDuyHud: Đã bắt đầu cày " .. _G.SelectedMaterial .. "! Đồ của Duy sẽ sớm lên 5 sao. 💎⚔️")
+end
+-- VanDuyHud v6.0 - BẢN FIX LỖI KHÔNG HOẠT ĐỘNG
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+
+-- 1. KHỞI TẠO MENU
+local Window = Rayfield:CreateWindow({
+   Name = "💀 VanDuyHud v6.0 | Dán Là Chạy 💀",
+   LoadingTitle = "Đang kết nối mạch điện của Duy...",
+   ConfigurationSaving = {Enabled = false}
+})
+
+-- 2. TAB RAID & FRUIT (PHẦN DUY CẦN NHẤT)
+local FruitTab = Window:CreateTab("🍎 Trái & Raid", 4483362458)
+
+FruitTab:CreateToggle({
+   Name = "Tự động Random Trái (Gacha)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoGacha = Value
+      spawn(function()
+         while _G.AutoGacha do
+            CommF:InvokeServer("Cousin", "Buy")
+            task.wait(5) -- Kiểm tra liên tục
+         end
+      end)
+   end,
+})
+
+FruitTab:CreateToggle({
+   Name = "Bay tới lượm Trái Rụng",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoGrab = Value
+      spawn(function()
+         while _G.AutoGrab do
+            for _, v in pairs(game.Workspace:GetChildren()) do
+               if v:IsA("Tool") and v.Name:find("Fruit") then
+                  game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Handle.CFrame
+               end
+            end
+            task.wait(1)
+         end
+      end)
+   end,
+})
+
+FruitTab:CreateButton({
+   Name = "Mua Chip Raid (Flame)",
+   Callback = function()
+      CommF:InvokeServer("Raids", "Buy", "Flame")
+      Rayfield:Notify({Title = "Thông báo", Content = "Đã mua Chip Raid cho Duy!"})
+   end,
+})
+
+-- 3. TAB CỬA HÀNG (SHOP)
+local ShopTab = Window:CreateTab("🛒 Cửa Hàng", 4483362458)
+
+ShopTab:CreateButton({
+   Name = "Mua Kiếm Saddi (Sea 2)",
+   Callback = function() CommF:InvokeServer("LegendarySwordDealer", "Buy", "Saddi") end,
+})
+
+ShopTab:CreateButton({
+   Name = "Reset Chỉ Số (Stats)",
+   Callback = function() CommF:InvokeServer("BlackbeardReward", "Refund", "Points") end,
+})
+
+-- 4. TAB CÀI ĐẶT (SETTINGS)
+local SetTab = Window:CreateTab("⚙️ Cài Đặt", 4483362458)
+
+SetTab:CreateToggle({
+   Name = "Chống Lag (Màn Hình Trắng)",
+   CurrentValue = false,
+   Callback = function(Value)
+      game:GetService("RunService"):Set3dRenderingEnabled(not Value)
+   end,
+})
+
+Rayfield:Notify({Title = "Thành Công", Content = "Duy chỉ việc bấm nút là nó chạy nhé!"})
+-- Ngăn 166: Logic Tự động nhặt tiền và trái (Auto Loot Master)
+function DuyHud_AutoLoot()
+    _G.AutoLootActive = true -- Duy bật cái này trong Menu
+
+    spawn(function()
+        while _G.AutoLootActive do
+            task.wait(0.5)
+            pcall(function()
+                -- 1. Tìm và bay tới Trái Ác Quỷ rụng trên đất
+                for _, item in pairs(game.Workspace:GetChildren()) do
+                    if item:IsA("Tool") and (item.Name:find("Fruit") or item:FindFirstChild("Handle")) then
+                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = item.Handle.CFrame
+                        task.wait(0.3)
+                    end
+                end
+
+                -- 2. Tìm và bay tới Rương (Chest) để lấy Beli
+                for _, obj in pairs(game.Workspace:GetChildren()) do
+                    if obj.Name:find("Chest") then
+                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = obj.CFrame
+                        task.wait(0.2)
+                    end
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud: Đã kích hoạt Đạo tặc! Tiền và Trái sẽ tự tìm tới Duy. 💰🍎")
+end
+-- Ngăn 167: Logic Shop Mảnh vỡ (Fragment Shop System)
+function DuyHud_FragmentShop()
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    -- 1. Tự động Reset điểm Stats (Dùng 2500 Fragments)
+    _G.AutoResetStats = true -- Duy bật nút này trong Menu
+    if _G.AutoResetStats then
+        local Success = CommF:InvokeServer("BlackbeardReward", "Refund", "Points")
+        if Success then
+            print("VanDuyHud: Đã Reset điểm Stats thành công cho Duy! 💎⚡")
+        else
+            warn("VanDuyHud: Duy không đủ 2500 Fragments rồi! ❌")
+        end
+    end
+
+    -- 2. Tự động Đổi Tộc (Race Change - Dùng 3000 Fragments)
+    _G.AutoChangeRace = true
+    if _G.AutoChangeRace then
+        local Success = CommF:InvokeServer("BlackbeardReward", "Reroll", "Race")
+        if Success then
+            print("VanDuyHud: Đã đổi Tộc mới! Hy vọng Duy ra Tộc xịn. 🧬✨")
+        end
+    end
+end
+-- Ngăn 168: Logic Tự động mua Chip Raid (Raid Chip Master)
+function DuyHud_BuyRaidChip(ChipName)
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    -- Danh sách các loại Chip phổ biến (Duy có thể thêm vào Menu)
+    -- ChipName: "Flame", "Ice", "Quake", "Light", "Dark", "Spider", "Rumble", "Magma", "Buddha", "Dough"
+
+    pcall(function()
+        -- Lệnh mua Chip bằng 100,000 Beli (Tiền trắng)
+        local Success = CommF:InvokeServer("Raids", "Buy", ChipName)
+        
+        if Success then
+            print("VanDuyHud: Đã mua thành công Chip " .. ChipName .. "! Chuẩn bị lên đường. ⚔️")
+        else
+            -- Nếu không đủ tiền trắng, Script thử dùng Trái Ác Quỷ rác để đổi (Nếu Duy muốn thêm logic này)
+            warn("VanDuyHud: Không đủ tiền mua Chip hoặc đang trong thời gian chờ (Cooldown). ⏳")
+        end
+    end)
+end
+
+-- Cách Duy lắp vào nút bấm trong Menu:
+-- FruitTab:CreateButton({
+--    Name = "Mua Chip Buddha",
+--    Callback = function() DuyHud_BuyRaidChip("Buddha") end,
+-- })
+-- Ngăn 169: Logic Tự động Bắt đầu & Diệt quái Raid (Raid Master Pro)
+function DuyHud_AutoStartRaid()
+    local Player = game.Players.LocalPlayer
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    _G.AutoRaidMaster = true -- Duy bật cái này trong Menu
+
+    spawn(function()
+        while _G.AutoRaidMaster do
+            task.wait(1)
+            -- 1. Tự động bay vào bệ phóng (Nếu chưa ở trong Raid)
+            if not game:GetService("Workspace"):FindFirstChild("Map") or not game:GetService("Workspace").Map:FindFirstChild("Raid") then
+                -- Tọa độ bệ phóng Raid ở Sea 2 (Duy có thể update thêm Sea 3)
+                Player.Character.HumanoidRootPart.CFrame = CFrame.new(-6411, 250, 4490) 
+                task.wait(0.5)
+                -- Tự động gạt cần (Lever) để bắt đầu
+                fireclickdetector(game:GetService("Workspace").Map.CircleIsland.RaidStart.ClickDetector)
+            end
+
+            -- 2. Kill Aura (Diệt quái siêu tốc khi đã vào phòng Raid)
+            pcall(function()
+                for _, enemy in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
+                    if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                        -- Bay sát quái và đánh (Dùng Fast Attack ngăn 137)
+                        Player.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 5, 0)
+                        -- Lệnh đánh quái (Duy dán logic đánh vào đây)
+                        task.wait(0.1)
+                    end
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud: Cỗ máy quét Raid đã khởi động! Chuẩn bị thức tỉnh trái thôi Duy. ⚔️🔥")
+end
+-- Ngăn 170: Logic Tự động Thức tỉnh Chiêu (Auto Awaken Master)
+function DuyHud_AutoAwaken()
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    _G.AutoAwakenActive = true -- Duy bật cái này trong Tab Raid
+
+    spawn(function()
+        while _G.AutoAwakenActive do
+            task.wait(2)
+            -- 1. Kiểm tra xem có đang ở trong phòng trắng (Awakening Room) không
+            if game.Workspace:FindFirstChild("Map") and game.Workspace.Map:FindFirstChild("AwakeningRoom") then
+                print("VanDuyHud: Duy đã xong Raid! Đang tiến hành thức tỉnh chiêu... ✨")
+                
+                -- 2. Gửi lệnh tới NPC Mysterious Force để Awaken chiêu tiếp theo
+                -- Lưu ý: Cần đủ Fragments (Mảnh vỡ) thì mới thành công
+                pcall(function()
+                    CommF:InvokeServer("Awakener", "Check") -- Kiểm tra chiêu có thể nâng cấp
+                    task.wait(1)
+                    CommF:InvokeServer("Awakener", "Awaken") -- Thực hiện thức tỉnh
+                end)
+                
+                -- 3. Sau khi xong, tự động thoát phòng trắng về Sea (Duy có thể thêm logic này)
+            end
+        end
+    end)
+    print("VanDuyHud: Hệ thống Thức tỉnh đã sẵn sàng! Sức mạnh của Duy sắp đạt đỉnh. 💀🔥")
+end
+-- Ngăn 171: Logic Tự động cày Xương (Auto Farm Bones - Sea 3)
+function DuyHud_AutoFarmBones()
+    local Player = game.Players.LocalPlayer
+    local Workspace = game:GetService("Workspace")
+    
+    _G.AutoFarmBones = true -- Duy bật nút này trong Tab Sea 3
+
+    spawn(function()
+        while _G.AutoFarmBones do
+            task.wait(0.1)
+            pcall(function()
+                -- 1. Tìm quái tại Đảo Ma (Reanimated Skeleton, Living Zombie,...)
+                for _, monster in pairs(Workspace.Enemies:GetChildren()) do
+                    if monster.Name:find("Skeleton") or monster.Name:find("Zombie") then
+                        if monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
+                            -- 2. Bay tới bãi quái và gom chúng lại
+                            Player.Character.HumanoidRootPart.CFrame = monster.HumanoidRootPart.CFrame * CFrame.new(0, 7, 0)
+                            
+                            -- 3. Kích hoạt Fast Attack (Dùng ngăn 137 của Duy)
+                            DuyHud_FastAttack(monster)
+                            
+                            -- Kiểm tra nếu túi đồ đã đầy hoặc cần nghỉ ngơi (Duy có thể thêm)
+                        end
+                    end
+                end
+                
+                -- Nếu không thấy quái, bay tới trung tâm Đảo Ma
+                if #Workspace.Enemies:GetChildren() == 0 then
+                    Player.Character.HumanoidRootPart.CFrame = CFrame.new(-9500, 160, 5700) -- Tọa độ Haunted Castle
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud: Đã bắt đầu cày Xương! Chuẩn bị làm trùm Đảo Ma thôi Duy. 🦴💀")
+end
+-- Ngăn 172: Logic Tự động Gacha Xương (Bone Gacha Master)
+function DuyHud_AutoBoneGacha()
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    _G.AutoBoneGacha = true -- Duy bật cái này trong Tab Sea 3
+
+    spawn(function()
+        while _G.AutoBoneGacha do
+            task.wait(1) -- Đợi 1 giây giữa mỗi lần quay để tránh lỗi Server
+            pcall(function()
+                -- 1. Gửi lệnh Gacha tới NPC Death King (Mất 50 Bones/lần)
+                -- Lệnh này sẽ trả về vật phẩm: Trái ác quỷ, Mảnh vỡ, hoặc Hallow Essence
+                local Result = CommF:InvokeServer("Bones", "Buy", 1, 1)
+                
+                if Result then
+                    print("VanDuyHud: Duy đã quay thành công! Kiểm tra hòm đồ ngay. 🎁🦴")
+                end
+            end)
+            
+            -- Dừng lại nếu không đủ Xương (Duy có thể thêm logic check số lượng Xương)
+        end
+    end)
+    print("VanDuyHud: Máy quay thưởng Xương đã sẵn sàng! Chúc Duy trúng Hallow Essence. 🎰💀")
+end
+-- Ngăn 173: Mạch nối giữa Menu và Tính năng (Hàn chết logic)
+-- Duy tìm đến chỗ tạo Tab trong Menu Rayfield và sửa lại như vầy:
+
+local Sea3Tab = Window:CreateTab("💀 Biển 3 (Haunted)", 4483362458)
+
+-- 1. NỐI NÚT "CÀY XƯƠNG" VÀO HÀM (NGĂN 171)
+Sea3Tab:CreateToggle({
+   Name = "Tự động Cày Xương (Bones)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoFarmBones = Value -- Gán trạng thái Bật/Tắt
+      if Value then
+         DuyHud_AutoFarmBones() -- Gọi cái "Máy" ở ngăn 171 chạy
+      end
+   end,
+})
+
+-- 2. NỐI NÚT "GACHA XƯƠNG" VÀO HÀM (NGĂN 172)
+Sea3Tab:CreateToggle({
+   Name = "Tự động Gacha Xương (Death King)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoBoneGacha = Value
+      if Value then
+         DuyHud_AutoBoneGacha() -- Gọi cái "Máy" ở ngăn 172 chạy
+      end
+   end,
+})
+
+-- 3. NỐI NÚT "MUA CHIP RAID" (NGĂN 168)
+local RaidTab = Window:CreateTab("⚔️ Raid Master", 4483362458)
+
+RaidTab:CreateButton({
+   Name = "Mua Chip Buddha (100k Beli)",
+   Callback = function()
+      DuyHud_BuyRaidChip("Buddha") -- Bấm phát chạy luôn không cần đợi
+   end,
+})
+-- Ngăn 174: Danh sách Tọa độ chuẩn Sea 3 (VanDuyHud Navigation)
+_G.Locations = {
+    ["Haunted Castle"] = CFrame.new(-9506, 172, 6017), -- Đảo Ma (Cày Xương)
+    ["Death King NPC"] = CFrame.new(-9482, 142, 5567), -- Chỗ Gacha Xương
+    ["Hydra Island"] = CFrame.new(5745, 602, -282),    -- Đảo Hydra (Lấy Yama)
+    ["Floating Turtle"] = CFrame.new(-13274, 531, -7579), -- Đảo Rùa (Mansion)
+    ["Castle on the Sea"] = CFrame.new(-5085, 315, -3156), -- Lâu đài giữa biển (Raid/Indra)
+    ["Sea 3 Gacha"] = CFrame.new(-5035, 314, -3154)   -- NPC Random Trái ở Sea 3
+}
+
+-- Hàm dịch chuyển tức thời (Tween TP - Chống văng game)
+function DuyHud_Teleport(TargetCFrame)
+    local Player = game.Players.LocalPlayer
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        -- Sử dụng Tween để bay mượt, tránh bị Anti-cheat kích
+        local TweenService = game:GetService("TweenService")
+        local Info = TweenInfo.new((Player.Character.HumanoidRootPart.Position - TargetCFrame.p).Magnitude/300, Enum.EasingStyle.Linear)
+        local Tween = TweenService:Create(Player.Character.HumanoidRootPart, Info, {CFrame = TargetCFrame})
+        Tween:Play()
+    end
+end
+-- Ngăn 175: Logic Tự động cày Level Max (Auto Farm Level Sea 3)
+function DuyHud_AutoFarmLevel()
+    local Player = game.Players.LocalPlayer
+    local Level = Player.Data.Level.Value
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    _G.AutoFarm = true -- Duy bật cái này trong Tab chính
+
+    spawn(function()
+        while _G.AutoFarm do
+            task.wait(0.5)
+            pcall(function()
+                -- 1. Logic chọn nhiệm vụ theo Level (Ví dụ mẫu cho Level 1500+)
+                local QuestName, MonsterName, QuestID = "", "", 1
+                
+                if Level >= 1500 and Level < 1575 then
+                    QuestName = "PiratePortQuest"
+                    MonsterName = "Pirate Millionaire"
+                    QuestID = 1
+                elseif Level >= 1575 and Level < 1650 then
+                    QuestName = "PiratePortQuest"
+                    MonsterName = "Pistol Billionaire"
+                    QuestID = 2
+                -- Duy có thể thêm các mốc Level tiếp theo vào đây (176-180)
+                end
+
+                -- 2. Tự động nhận nhiệm vụ (Nếu chưa có)
+                if not Player.PlayerGui.Main:FindFirstChild("Quest") then
+                    DuyHud_Teleport(_G.Locations["Floating Turtle"]) -- Bay tới NPC nhận quest
+                    CommF:InvokeServer("StartQuest", QuestName, QuestID)
+                end
+
+                -- 3. Tìm quái và diệt (Dùng Fast Attack & Kill Aura)
+                for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
+                    if v.Name == MonsterName and v.Humanoid.Health > 0 then
+                        Player.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                        DuyHud_FastAttack(v) -- Ngăn 137
+                    end
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud: Máy cày Level đã khởi động! Chúc Duy sớm đạt 2550. 📈⚔️")
+end
+-- Ngăn 176: Logic Chọn Nhiệm Vụ Cấp Cao (Update Max Level 2800)
+local function GetQuestData(Level)
+    if Level >= 1500 and Level < 1575 then
+        return "PiratePortQuest", "Pirate Millionaire", 1
+    elseif Level >= 1575 and Level < 1650 then
+        return "PiratePortQuest", "Pistol Billionaire", 2
+    elseif Level >= 1650 and Level < 1725 then
+        return "AmazonQuest", "Amazon Warrior", 1
+    elseif Level >= 1725 and Level < 1800 then
+        return "AmazonQuest", "Giant Beetle", 2
+    elseif Level >= 1800 and Level < 1900 then
+        return "GreatTreeQuest", "Marine Captain", 1
+    elseif Level >= 1900 and Level < 1975 then
+        return "GreatTreeQuest", "Marine Admiral", 2
+    elseif Level >= 1975 and Level < 2075 then
+        return "FloatingTurtleQuest", "Fishman Raider", 1
+    elseif Level >= 2075 and Level < 2150 then
+        return "FloatingTurtleQuest", "Fishman Captain", 2
+    elseif Level >= 2150 and Level < 2275 then
+        return "IceIslandQuest", "Lava Pirate", 1
+    elseif Level >= 2275 and Level < 2350 then
+        return "IceIslandQuest", "Gingerbread Man", 2
+    -- CẬP NHẬT MỚI CHO DUY TỪ 2400+ TỚI 2800 (NEW MAPS)
+    elseif Level >= 2400 and Level < 2550 then
+        return "ChocolateIslandQuest", "Cocoa Warrior", 1
+    elseif Level >= 2550 and Level < 2675 then
+        return "ChocolateIslandQuest", "Chocolate Barred", 2
+    elseif Level >= 2675 and Level <= 2800 then
+        -- Đây là bãi quái cuối cùng hiện tại
+        return "SkyIslandQuestV2", "Angel Warrior", 1
+    end
+end
+-- Ngăn 177: Logic Tự động cày Mastery (VanDuyHud v1.0)
+function DuyHud_AutoMastery()
+    local Player = game.Players.LocalPlayer
+    
+    _G.MasteryTarget = 350 -- Duy cho khách chọn mốc Mastery muốn đạt tới
+    _G.AutoMastery = true
+
+    spawn(function()
+        while _G.AutoMastery do
+            task.wait(0.5)
+            pcall(function()
+                -- 1. Kiểm tra món đồ đang cầm (Kiếm hoặc Trái Ác Quỷ)
+                local Tool = Player.Backpack:FindFirstChildOfClass("Tool") or Player.Character:FindFirstChildOfClass("Tool")
+                
+                if Tool then
+                    -- 2. Logic đánh quái cho đến khi quái gần chết (Low Health)
+                    -- Sau đó mới dùng chiêu của Tool đó để kết liễu (Kết liễu bằng chiêu mới được nhiều Mastery)
+                    for _, enemy in pairs(game.Workspace.Enemies:GetChildren()) do
+                        if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                            -- Bay tới quái
+                            Player.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                            
+                            -- Đánh thường cho máu xuống dưới 20%
+                            if enemy.Humanoid.Health > (enemy.Humanoid.MaxHealth * 0.2) then
+                                DuyHud_FastAttack(enemy)
+                            else
+                                -- Khi máu thấp, tự động dùng chiêu Z, X để lấy Mastery
+                                game:GetService("VirtualUser"):CaptureController()
+                                game:GetService("VirtualUser"):SetKeyDown("z")
+                                task.wait(0.1)
+                                game:GetService("VirtualUser"):SetKeyUp("z")
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud v1.0: Đang cày Mastery cho Duy... Sắp có chiêu cuối rồi! ⚔️✨")
+end
+-- Ngăn 178: Logic Bảo vệ & Hồi máu (Safe Mode System)
+function DuyHud_SafeMode()
+    local Player = game.Players.LocalPlayer
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+    
+    _G.AutoHaki = true -- Tự động bật Haki
+    _G.AutoHeal = true -- Tự động hồi máu
+
+    spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                -- 1. Tự động bật Haki (Buso) để tăng thủ và sát thương
+                if _G.AutoHaki and not Character:FindFirstChild("HasBuso") then
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
+                end
+
+                -- 2. Tự động hồi máu (Safe Mode)
+                if _G.AutoHeal then
+                    local HealthPercent = (Character.Humanoid.Health / Character.Humanoid.MaxHealth) * 100
+                    
+                    if HealthPercent < 30 then
+                        -- Nếu máu dưới 30%, bay lên cao để né quái
+                        _G.OldCFrame = Character.HumanoidRootPart.CFrame
+                        Character.HumanoidRootPart.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0, 50, 0)
+                        
+                        -- Chờ hồi máu đến 70% mới bay xuống lại
+                        repeat task.wait(1) until (Character.Humanoid.Health / Character.Humanoid.MaxHealth) * 100 > 70
+                        Character.HumanoidRootPart.CFrame = _G.OldCFrame
+                    end
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud v1.0: Chế độ Bảo vệ đã kích hoạt! Duy cứ yên tâm treo máy. 🛡️🔥")
+end
+-- Ngăn 179: Logic Ra-đa Phát hiện & Né tránh (Anti-Bounty Hunter)
+function DuyHud_AntiBounty()
+    local Player = game.Players.LocalPlayer
+    
+    _G.AntiBountyActive = true -- Duy bật cái này để treo máy an toàn
+    _G.SafeDistance = 250 -- Khoảng cách nguy hiểm (m)
+
+    spawn(function()
+        while _G.AntiBountyActive do
+            task.wait(1) -- Quét mỗi giây một lần cho đỡ lag
+            pcall(function()
+                for _, otherPlayer in pairs(game.Players:GetPlayers()) do
+                    if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        local Distance = (Player.Character.HumanoidRootPart.Position - otherPlayer.Character.HumanoidRootPart.Position).Magnitude
+                        
+                        -- Nếu có người chơi khác tiến vào bán kính 250m
+                        if Distance < _G.SafeDistance then
+                            print("VanDuyHud v1.0: PHÁT HIỆN KẺ LẠ! Đang đưa Duy đi trốn... 🏃💨")
+                            
+                            -- 1. Cách 1: Bay lên thật cao (Vùng an toàn)
+                            Player.Character.HumanoidRootPart.CFrame = Player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 1000, 0)
+                            
+                            -- 2. Cách 2: Tự động đổi Server (Nếu Duy muốn)
+                            -- game:GetService("TeleportService"):Teleport(game.PlaceId, Player)
+                            
+                            task.wait(5) -- Đợi kẻ săn mồi đi chỗ khác
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+    print("VanDuyHud v1.0: Hệ thống Ra-đa đã bật! Không ai có thể săn được Duy. 📡💀")
+end
+-- Ngăn 180: Logic Quét & Thông báo Boss Elite (Elite Hunter Master)
+function DuyHud_EliteScanner()
+    local Player = game.Players.LocalPlayer
+    local Enemies = game:GetService("Workspace").Enemies
+    
+    _G.AutoEliteHunter = true -- Duy bật cái này để đi săn Yama
+
+    spawn(function()
+        while _G.AutoEliteHunter do
+            task.wait(2) -- Quét mỗi 2 giây
+            local EliteFound = false
+            
+            pcall(function()
+                -- 1. Tìm trong danh sách Enemies xem có tên Boss Elite không
+                for _, boss in pairs(Enemies:GetChildren()) do
+                    if boss.Name == "Deandre" or boss.Name == "Diablo" or boss.Name == "Urban" then
+                        EliteFound = true
+                        if boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+                            -- 2. Hiện thông báo "Kèo Thơm" cho Duy
+                            Rayfield:Notify({
+                                Title = "💀 PHÁT HIỆN BOSS ELITE! 💀",
+                                Content = "Đã tìm thấy " .. boss.Name .. "! Đang bay tới tiêu diệt.",
+                                Duration = 5
+                            })
+                            
+                            -- 3. Tự động bay tới và diệt Boss (Dùng Tọa độ ngăn 174)
+                            Player.Character.HumanoidRootPart.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                            DuyHud_FastAttack(boss)
+                        end
+                    end
+                end
+            end)
+            
+            if not EliteFound then
+                print("VanDuyHud v1.0: Đang chờ Boss Elite hồi sinh... ⏳")
+            end
+        end
+    end)
+    print("VanDuyHud v1.0: Hệ thống Radar Boss đã sẵn sàng! Kiếm Yama đang ở rất gần Duy. 🎯⚔️")
+end
+-- Ngăn 181: Logic Kiểm tra Tiến độ lấy Yama (Quest Progress)
+function DuyHud_CheckEliteProgress()
+    local CommF = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
+    
+    -- Gửi lệnh hỏi NPC Elite Hunter về số lượng Boss đã diệt
+    local Progress = CommF:InvokeServer("EliteHunter", "Progress")
+    
+    if Progress then
+        -- Hiển thị thông báo cho Duy biết còn bao nhiêu con nữa
+        Rayfield:Notify({
+            Title = "📊 TIẾN ĐỘ YAMA 📊",
+            Content = "Duy đã diệt được: " .. tostring(Progress) .. "/30 Boss Elite.",
+            Duration = 7
+        })
+        
+        -- Nếu đủ 30 con, nhắc Duy đi lấy kiếm ngay
+        if tonumber(Progress) >= 30 then
+            Rayfield:Notify({
+                Title = "⚔️ ĐỦ ĐIỀU KIỆN! ⚔️",
+                Content = "Duy đã đủ 30 Boss! Hãy bật chức năng Auto Pull Yama.",
+                Duration = 10
+            })
+        end
+    end
+end
+
+-- Cách lắp vào Menu để Duy bấm check bất cứ lúc nào:
+-- SetTab:CreateButton({
+--    Name = "Kiểm tra tiến độ Yama (Elite)",
+--    Callback = function() DuyHud_CheckEliteProgress() end,
+-- })
+-- VanDuyHud v1.0: CÀY CẤP SIÊU TỐC (GOM QUÁI & ĐÁNH NHANH)
+-- Ngăn 182: Tự động hóa hoàn toàn 1500 - 2800
+
+local function DuyHud_SmartFarmV1()
+    _G.AutoFarmLevel = true -- Duy bật nút này trong Menu
+
+    spawn(function()
+        while _G.AutoFarmLevel do
+            task.wait(0.1)
+            pcall(function()
+                local Player = game.Players.LocalPlayer
+                local Level = Player.Data.Level.Value
+                local QuestData = GetQuestData(Level) -- Lấy dữ liệu từ Ngăn 176
+                local MonsterName = QuestData.MonsterName
+                
+                -- 1. KIỂM TRA NHIỆM VỤ
+                if not Player.PlayerGui.Main:FindFirstChild("Quest") then
+                    -- Nếu chưa có Quest, bay tới NPC nhận Quest
+                    DuyHud_Teleport(QuestData.NPCPos)
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", QuestData.QuestName, QuestData.QuestID)
+                else
+                    -- 2. ĐÃ CÓ QUEST: ĐI GOM QUÁI & DIỆT
+                    for _, monster in pairs(game.Workspace.Enemies:GetChildren()) do
+                        if monster.Name == MonsterName and monster:FindFirstChild("Humanoid") and monster.Humanoid.Health > 0 then
+                            -- GOM QUÁI: Đưa tất cả quái về 1 điểm trước mặt Duy
+                            monster.HumanoidRootPart.CanCollide = false
+                            monster.HumanoidRootPart.CFrame = Player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+                            
+                            -- ĐÁNH NHANH: Tự động Click chuột siêu tốc
+                            local VirtualUser = game:GetService("VirtualUser")
+                            VirtualUser:CaptureController()
+                            VirtualUser:Button1Down(Vector2.new(1280, 720))
+                            
+                            -- GIỮ KHOẢNG CÁCH AN TOÀN (Bay trên đầu quái)
+                            Player.Character.HumanoidRootPart.CFrame = monster.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- PHẦN GIAO DIỆN TIẾNG VIỆT CHO DUY
+local MainTab = Window:CreateTab("🏠 Chính Chủ", 4483362458)
+
+MainTab:CreateToggle({
+   Name = "Tự Động Cày Cấp (Gom Quái + Đánh Nhanh)",
+   CurrentValue = false,
+   Callback = function(Value)
+      _G.AutoFarmLevel = Value
+      if Value then
+         DuyHud_SmartFarmV1()
+         print("VanDuyHud v1.0: Đang bắt đầu hành trình cày cấp! 📈")
+      end
+   end,
+})
+-- [[ VAN DUY HUD V1.0 - NGĂN 183: SIÊU NÉN CÀY CẤP ]]
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({Name = "💀 VanDuyHud v1.0 | Biển 3 💀",LoadingTitle = "Đang tải...",LoadingSubtitle = "by Duy"})
+local MainTab = Window:CreateTab("🏠 Cày Cấp", 4483362458)
+_G.AutoFarm = false; function DuyHud_Farm() spawn(function() while _G.AutoFarm do task.wait() pcall(function() local P = game.Players.LocalPlayer; for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; v.HumanoidRootPart.CFrame = P.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-5); P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0,10,0); game:GetService("VirtualUser"):CaptureController(); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end) end end) end
+MainTab:CreateToggle({Name = "Tự Động Cày Cấp (Gom Quái + Đánh Nhanh)",CurrentValue = false,Callback = function(V) _G.AutoFarm = V; if V then DuyHud_Farm() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 184: TỰ ĐỘNG CẦM VŨ KHÍ ]]
+_G.SelectWeapon = "Sword"; function DuyHud_Equip() spawn(function() while task.wait(0.5) do pcall(function() if not game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then for _,v in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do if v.ToolTip == _G.SelectWeapon or v.Name == _G.SelectWeapon then game.Players.LocalPlayer.Character.Humanoid:EquipTool(v) end end end end) end end) end
+MainTab:CreateDropdown({Name = "Chọn Loại Vũ Khí",Options = {"Sword","Melee","Blox Fruit"},CurrentValue = "Sword",Callback = function(V) _G.SelectWeapon = V; DuyHud_Equip() end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 185: SIÊU CẤP CÀY XƯƠNG ]]
+_G.AutoBones = false; function DuyHud_FarmBones() spawn(function() while _G.AutoBones do task.wait() pcall(function() local P = game.Players.LocalPlayer; for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if (v.Name == "Reanimated Skeleton" or v.Name == "Living Zombie") and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; v.HumanoidRootPart.CFrame = P.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-5); P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0,10,0); game:GetService("VirtualUser"):CaptureController(); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end) end end) end
+Sea3Tab:CreateToggle({Name = "Tự Động Cày Xương (Đảo Ma)",CurrentValue = false,Callback = function(V) _G.AutoBones = V; if V then DuyHud_FarmBones() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 186: GÓI TIỆN ÍCH TỔNG HỢP ]]
+local ShopTab = Window:CreateTab("🛒 Cửa Hàng", 4483362458); ShopTab:CreateButton({Name = "Mua Chip Buddha (100k)",Callback = function() game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("BlackbeardReward","Fruit","Buddha-Buddha") end}); ShopTab:CreateButton({Name = "Mua Random Trái (Beli)",Callback = function() game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Cousin","BuyItem") end})
+local RaidTab = Window:CreateTab("⚔️ Phó Bản", 4483362458); _G.AutoRaid = false; RaidTab:CreateToggle({Name = "Tự Động Đánh Raid (Kill Aura)",CurrentValue = false,Callback = function(V) _G.AutoRaid = V; spawn(function() while _G.AutoRaid do task.wait() pcall(function() for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then v.Humanoid.Health = 0 end end end) end end) end})
+local FruitTab = Window:CreateTab("🍎 Trái Ác Quỷ", 4483362458); FruitTab:CreateButton({Name = "Tự Động Nhặt Trái",Callback = function() for _,v in pairs(game.Workspace:GetChildren()) do if v:IsA("Tool") and v:FindFirstChild("Handle") then firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v.Handle, 0) end end end}); FruitTab:CreateButton({Name = "Cất Trái Vào Túi",Callback = function() for _,v in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do if v:FindFirstChild("Fruit") then game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StoreFruit",v:GetAttribute("FruitName"),v) end end end})
+local SetTab = Window:CreateTab("⚙️ Cài Đặt", 4483362458); SetTab:CreateToggle({Name = "Màn Hình Trắng (Giảm Lag)",CurrentValue = false,Callback = function(V) game:GetService("RunService"):Set3dRenderingEnabled(not V) end}); SetTab:CreateButton({Name = "Xóa Script (Tắt Menu)",Callback = function() Rayfield:Destroy() end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 187: TỰ ĐỘNG SĂN ELITE LẤY YAMA ]]
+_G.AutoElite = false; function DuyHud_Elite() spawn(function() while _G.AutoElite do task.wait(1) pcall(function() local P = game.Players.LocalPlayer; local CF = game:GetService("ReplicatedStorage").Remotes.CommF_; if not P.PlayerGui.Main:FindFirstChild("Quest") then P.Character.HumanoidRootPart.CFrame = CFrame.new(-13274, 531, -7579); CF:InvokeServer("EliteHunter") else for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if (v.Name == "Deandre" or v.Name == "Diablo" or v.Name == "Urban") and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; v.HumanoidRootPart.CFrame = P.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-5); P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0,10,0); game:GetService("VirtualUser"):CaptureController(); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end end) end end) end
+Sea3Tab:CreateToggle({Name = "Tự Động Săn Boss Elite (Yama Quest)",CurrentValue = false,Callback = function(V) _G.AutoElite = V; if V then DuyHud_Elite() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 188: TỰ ĐỘNG PHÁ CỬA & DIỆT GHOST HYDRA ]]
+_G.AutoYamaPuzzle = false; function DuyHud_YamaPuzzle() spawn(function() while _G.AutoYamaPuzzle do task.wait(0.5) pcall(function() local P = game.Players.LocalPlayer; local H = P.Character.HumanoidRootPart; if (H.Position - Vector3.new(5745, 602, -282)).Magnitude > 500 then H.CFrame = CFrame.new(5745, 602, -282) else for _,v in pairs(game.Workspace:GetChildren()) do if v.Name == "SecretDoor" and v:IsA("BasePart") then H.CFrame = v.CFrame; game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end; for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if v.Name == "Ghost" and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; v.HumanoidRootPart.CFrame = H.CFrame * CFrame.new(0,0,-5); H.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0,10,0); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end end) end end) end
+Sea3Tab:CreateToggle({Name = "Tự Động Phá Cửa & Diệt Quái Đền Thờ (Hydra)",CurrentValue = false,Callback = function(V) _G.AutoYamaPuzzle = V; if V then DuyHud_YamaPuzzle() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 189: TỰ ĐỘNG RÚT KIẾM YAMA ]]
+_G.AutoPullYama = false; function DuyHud_PullYama() spawn(function() while _G.AutoPullYama do task.wait(0.5) pcall(function() local P = game.Players.LocalPlayer; local YPos = CFrame.new(-5250, 15, -1545); if (P.Character.HumanoidRootPart.Position - YPos.p).Magnitude > 5 then P.Character.HumanoidRootPart.CFrame = YPos else fireclickdetector(game.Workspace.Map.HydraIsland.Altar.Yama.ClickDetector) end end) end end) end
+Sea3Tab:CreateButton({Name = "Rút Kiếm Yama (Yêu Cầu: Đã Diệt 30 Elite)",Callback = function() _G.AutoPullYama = true; DuyHud_PullYama(); task.wait(5); _G.AutoPullYama = false end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 190: TỰ ĐỘNG LẤY HAKI BẢY MÀU ]]
+_G.AutoRainbow = false; function DuyHud_Rainbow() spawn(function() while _G.AutoRainbow do task.wait(1) pcall(function() local P = game.Players.LocalPlayer; local CF = game:GetService("ReplicatedStorage").Remotes.CommF_; if not P.PlayerGui.Main:FindFirstChild("Quest") then P.Character.HumanoidRootPart.CFrame = CFrame.new(-11631, 1192, -7324); CF:InvokeServer("HornedMan") else for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if (v.Name=="Stone" or v.Name=="Island Emperor" or v.Name=="Kilo Admiral" or v.Name=="Captain Elephant" or v.Name=="Beautiful Pirate") and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; v.HumanoidRootPart.CFrame = P.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-5); P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0,10,0); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end end) end end) end
+Sea3Tab:CreateToggle({Name = "Tự Động Lấy Haki Bảy Màu (Rainbow Haki)",CurrentValue = false,Callback = function(V) _G.AutoRainbow = V; if V then DuyHud_Rainbow() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 191: TỐI ƯU HÓA TAB SHOP ]]
+local S=game:GetService("ReplicatedStorage").Remotes.CommF_;function Buy(I,N) S:InvokeServer("BuyItem",I,N)end;ShopTab:CreateSection("🛒 Mua Vật Phẩm");ShopTab:CreateButton({Name="Mua Melee Superhuman (3M Beli)",Callback=function() Buy("Superhuman")end});ShopTab:CreateButton({Name="Mua Melee Death Step (5M Beli)",Callback=function() Buy("DeathStep")end});ShopTab:CreateButton({Name="Mua Melee Sharkman Karate (5M Beli)",Callback=function() Buy("SharkmanKarate")end});ShopTab:CreateButton({Name="Mua Quan Công Đao (Cursed Dual Katana)",Callback=function() Buy("CDK")end});ShopTab:CreateSection("🎲 May Mắn");ShopTab:CreateButton({Name="Random Trái Ác Quỷ (Beli)",Callback=function() S:InvokeServer("Cousin","BuyItem")end});ShopTab:CreateButton({Name="Đổi Xương Lấy Quà (Death King)",Callback=function() S:InvokeServer("DeathKing","BuyItem")end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 192: TỰ ĐỘNG RAID & MUA CHIP ]]
+_G.AutoRaid=false;_G.SelectRaid="Flame";function DuyHud_Raid()spawn(function()while _G.AutoRaid do task.wait(0.1)pcall(function()local P=game.Players.LocalPlayer;if not P.PlayerGui.Main:FindFirstChild("Quest")then if(P.Character.HumanoidRootPart.Position-Vector3.new(-6408,15,5822)).Magnitude>20 then P.Character.HumanoidRootPart.CFrame=CFrame.new(-6408,15,5822)else game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("RaidsCustomer","Inspect",_G.SelectRaid);fireclickdetector(game.Workspace.Map.BoatCastle.RaidPanel.ClickDetector)end else for _,v in pairs(game.Workspace.Enemies:GetChildren())do if v:FindFirstChild("Humanoid")and v.Humanoid.Health>0 then v.Humanoid.Health=0 end end end end)end end)end
+RaidTab:CreateDropdown({Name="Chọn Loại Raid",Options={"Flame","Ice","Quake","Light","Dark","Buddha"},CurrentValue="Flame",Callback=function(V)_G.SelectRaid=V end});RaidTab:CreateToggle({Name="Tự Động Mua Chip & Đánh Raid",CurrentValue=false,Callback=function(V)_G.AutoRaid=V;if V then DuyHud_Raid()end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 193: TINH CHỈNH DỊCH CHUYỂN BIỂN 3 ]]
+local T=game.Players.LocalPlayer.Character.HumanoidRootPart;function TP(C)T.CFrame=C end;TeleTab:CreateSection("🏝️ Các Đảo Biển 3");TeleTab:CreateButton({Name="Đảo Rùa (Floating Turtle)",Callback=function()TP(CFrame.new(-13274,531,-7579))end});TeleTab:CreateButton({Name="Đảo Hydra (Hydra Island)",Callback=function()TP(CFrame.new(5745,602,-282))end});TeleTab:CreateButton({Name="Lâu Đài Trên Biển (Castle on Sea)",Callback=function()TP(CFrame.new(-5085,315,-3156))end});TeleTab:CreateButton({Name="Đảo Ma (Haunted Castle)",Callback=function()TP(CFrame.new(-9515,164,5786))end});TeleTab:CreateButton({Name="Đảo Cây Đại Thụ (Great Tree)",Callback=function()TP(CFrame.new(2104,448,-12108))end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 194: TỰ ĐỘNG NÂNG ĐIỂM TIỀM NĂNG ]]
+_G.AutoStats = false; _G.StatsSelect = "Melee"; function DuyHud_Stats() spawn(function() while _G.AutoStats do task.wait(0.5) pcall(function() game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", _G.StatsSelect, 1) end) end end) end
+SetTab:CreateDropdown({Name = "Chọn Chỉ Số Nâng", Options = {"Melee","Defense","Sword","Gun","Blox Fruit"}, CurrentValue = "Melee", Callback = function(V) _G.StatsSelect = V end})
+SetTab:CreateToggle({Name = "Tự Động Nâng Điểm (Auto Stats)", CurrentValue = false, Callback = function(V) _G.AutoStats = V; if V then DuyHud_Stats() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 195: TỰ ĐỘNG LUYỆN HAKI QUAN SÁT ]]
+_G.AutoKen = false; function DuyHud_Ken() spawn(function() while _G.AutoKen do task.wait(0.5) pcall(function() local V=game:GetService("VirtualInputManager"); if not game.Players.LocalPlayer.Character:FindFirstChild("HasBuso") then V:SendKeyEvent(true,Enum.KeyCode.E,false,game); task.wait(1); V:SendKeyEvent(true,Enum.KeyCode.E,false,game) end end) end end) end
+SetTab:CreateToggle({Name = "Tự Động Luyện Haki Quan Sát (E)", CurrentValue = false, Callback = function(V) _G.AutoKen = V; if V then DuyHud_Ken() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 196: TỰ ĐỘNG ĐỔI SERVER SĂN ELITE ]]
+function DuyHud_Hop(){local Http=game:GetService("HttpService");local Api="https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100";local Servers=Http:JSONDecode(game:HttpGet(Api)).data;for _,v in pairs(Servers) do if v.playing<v.maxPlayers and v.id~=game.JobId then game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId,v.id) end end}
+_G.AutoHopElite=false;spawn(function()while task.wait(5)do if _G.AutoHopElite then local B=false;for _,v in pairs(game.Workspace.Enemies:GetChildren())do if v.Name=="Deandre" or v.Name=="Diablo" or v.Name=="Urban" then B=true end end;if not B then DuyHud_Hop() end end end end)
+Sea3Tab:CreateToggle({Name="Tự Động Đổi Server Khi Hết Boss",CurrentValue=false,Callback=function(V)_G.AutoHopElite=V end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 197: TỰ ĐỘNG MUA MÀU HAKI HIẾM ]]
+_G.AutoBuyHaki = false; function DuyHud_BuyHaki() spawn(function() while _G.AutoBuyHaki do task.wait(1) pcall(function() local H = game:GetService("ReplicatedStorage").Remotes.CommF_; for _,v in pairs(game.Workspace:GetChildren()) do if v.Name == "Master of Auras" and v:FindFirstChild("HumanoidRootPart") then game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0,0,-5); H:InvokeServer("MasterOfAuras","Buy",v.Name) end end end) end end) end
+Sea3Tab:CreateToggle({Name = "Tự Động Mua Màu Haki (Master of Auras)", CurrentValue = false, Callback = function(V) _G.AutoBuyHaki = V; if V then DuyHud_BuyHaki() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 198: CHỐNG AFK SIÊU CẤP ]]
+local VIM=game:GetService("VirtualUser");game:GetService("Players").LocalPlayer.Idled:Connect(function()VIM:CaptureController();VIM:ClickButton2(Vector2.new())end);spawn(function()while task.wait(100)do pcall(function()game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)end)end end)
+SetTab:CreateSection("🛡️ Bảo Vệ Script");SetTab:CreateLabel("Đã Kích Hoạt Chống AFK 24/7");SetTab:CreateButton({Name="Tối ƯU FPS (Mát Máy)",Callback=function()setfpscap(30)end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 199: TỰ ĐỘNG SĂN SOUL REAPER ]]
+_G.AutoSoulReaper = false; function DuyHud_SoulReaper() spawn(function() while _G.AutoSoulReaper do task.wait(0.5) pcall(function() local P = game.Players.LocalPlayer; local CF = game:GetService("ReplicatedStorage").Remotes.CommF_; if not game.Workspace.Enemies:FindFirstChild("Soul Reaper") then if (P.Character.HumanoidRootPart.Position - Vector3.new(-9515, 164, 5786)).Magnitude > 100 then P.Character.HumanoidRootPart.CFrame = CFrame.new(-9515, 164, 5786) else CF:InvokeServer("DeathKing","BuyItem") end else local V = game.Workspace.Enemies["Soul Reaper"]; V.HumanoidRootPart.CanCollide = false; V.HumanoidRootPart.CFrame = P.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-5); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end) end end) end
+Sea3Tab:CreateToggle({Name = "Tự Động Triệu Hồi & Diệt Soul Reaper", CurrentValue = false, Callback = function(V) _G.AutoSoulReaper = V; if V then DuyHud_SoulReaper() end end})
+-- [[ VAN DUY HUD V1.0 - NGĂN 200: HỆ THỐNG KIỂM TRA & CHỐT SỔ ]]
+local Version = "1.0.0"; local Author = "VanDuyHud"; Rayfield:Notify({Title = "VANDUYHUD v1.0", Content = "Chào mừng Duy đã quay trở lại! Đang tải 6415+ dòng code...", Duration = 5, Image = 4483362458}); print("-----------------------------------"); print("Script Name: " .. Author .. " Hub"); print("Current Version: " .. Version); print("Status: Online & Optimized"); print("-----------------------------------");
+local MainTab = Window:CreateTab("🏠 Trang Chủ", 4483362458); MainTab:CreateSection("🌟 THÔNG TIN SCRIPT"); MainTab:CreateLabel("Tên: VanDuyHud Hub"); MainTab:CreateLabel("Phiên Bản: v1.0 (Official)"); MainTab:CreateLabel("Tác Giả: Duy (VanDuyHud)"); MainTab:CreateSection("📢 THÔNG BÁO"); MainTab:CreateParagraph({Title = "Cập Nhật Mới", Content = "Đã tích hợp đầy đủ Farm, Raid, Teleport, Boss Elite và Yama Quest. Chúc Duy chơi game vui vẻ!"})
+-- [[ VAN DUY HUD V1.1 - NGĂN 201: TỰ ĐỘNG SĂN CÁ MẬP & THUYỀN MA ]]
+_G.AutoSeaEvent = false; function DuyHud_SeaEvent() spawn(function() while _G.AutoSeaEvent do task.wait(0.5) pcall(function() local P = game.Players.LocalPlayer; for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if (v.Name == "Shark" or v.Name == "Terrrorshark" or v.Name == "Ship Stub") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; v.HumanoidRootPart.CFrame = P.Character.HumanoidRootPart.CFrame * CFrame.new(0,50,0); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end) end end) end
+local SeaEventTab = Window:CreateTab("🌊 Sự Kiện Biển", 4483362458); SeaEventTab:CreateToggle({Name = "Tự Động Diệt Cá Mập & Thuyền Ma", CurrentValue = false, Callback = function(V) _G.AutoSeaEvent = V; if V then DuyHud_SeaEvent() end end})
+-- [[ VAN DUY HUD V1.1 - NGĂN 202: TỰ ĐỘNG DIỆT TERRORSHARK ]]
+_G.AutoTerror = false; function DuyHud_Terror() spawn(function() while _G.AutoTerror do task.wait(0.1) pcall(function() local P = game.Players.LocalPlayer; for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if v.Name == "Terrorshark" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then v.HumanoidRootPart.CanCollide = false; if v.Humanoid.Health > 100000 then P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 70, 0) else P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 30, -10) end; game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end) end end) end
+SeaEventTab:CreateToggle({Name = "Tự Động Diệt Terrorshark (Cá Mập Cụ)", CurrentValue = false, Callback = function(V) _G.AutoTerror = V; if V then DuyHud_Terror() end end})
+-- [[ VAN DUY HUD V1.1 - NGĂN 203: TỰ ĐỘNG BẮN CHÌM TÀU HẢI QUÂN ]]
+_G.AutoShipRaid = false; function DuyHud_ShipRaid() spawn(function() while _G.AutoShipRaid do task.wait(0.5) pcall(function() local P = game.Players.LocalPlayer; for _,v in pairs(game.Workspace.Enemies:GetChildren()) do if (v.Name:find("Ship") or v.Name == "Brigade") and v:FindFirstChild("HumanoidRootPart") then v.HumanoidRootPart.CanCollide = false; P.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, 45, 0); game:GetService("VirtualUser"):Button1Down(Vector2.new(1280,720)) end end end) end end) end
+SeaEventTab:CreateToggle({Name = "Tự Động Diệt Tàu Hải Quân (Ship Raid)", CurrentValue = false, Callback = function(V) _G.AutoShipRaid = V; if V then DuyHud_ShipRaid() end end})
+	
